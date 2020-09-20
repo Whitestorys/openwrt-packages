@@ -743,7 +743,7 @@ start_dns() {
 		TUN_DNS=""
 	;;
 	dns2socks)
-		echolog "  - 域名解析 dns2socks..."
+		echolog "  - 域名解析：dns2socks..."
 	;;
 	https-dns-proxy)
 		up_trust_doh_dns=$(config_t_get global up_trust_doh_dns "tcp")
@@ -768,13 +768,14 @@ start_dns() {
 	;;
 	udp)
 		use_udp_node_resolve_dns=1
-		msg="直接使用UDP节点请求DNS"
+		TUN_DNS=${DNS_FORWARD}
+		echolog "  - 域名解析：直接使用UDP节点请求DNS（$TUN_DNS）"
 	;;
 	custom)
 		[ "$CHINADNS_NG" != "1" ] && {
 			custom_dns=$(config_t_get global custom_dns)
 			TUN_DNS="$(echo ${custom_dns} | sed 's/:/#/g')"
-			echolog "  - 域名解析 直接使用UDP协议自定义DNS（$TUN_DNS）解析..."
+			echolog "  - 域名解析：直接使用UDP协议自定义DNS（$TUN_DNS）解析..."
 		}
 	;;
 	esac
@@ -812,8 +813,8 @@ start_dns() {
 		echolog "  - dns2sock(127.0.0.1:${dns_listen_port}${dns2sock_cache})，${dns2socks_socks_server:-127.0.0.1:9050} -> ${dns2socks_forward-D46.182.19.48:53}"
 		#[ "$CHINADNS_NG" = "1" ] && [ -n "${global}${chnlist}" ] && [ -z "${returnhome}" ] && TUN_DNS=$(echo "${dns_listen_port}" | sed 's/:/#/g')
 	fi
-	[ "${use_udp_node_resolve_dns}" = "1" ] && echolog "  * 要求代理 DNS 请求，如上游 DNS 非直连地址，确保 UDP 代理打开，并且已经正确转发"
-	[ "${use_tcp_node_resolve_dns}" = "1" ] && echolog "  * 请确认上游 DNS 支持 TCP 查询，如非直连地址，确保 TCP 代理打开，并且已经正确转发"
+	[ "${use_udp_node_resolve_dns}" = "1" ] && echolog "  * 要求代理 DNS 请求，如上游 DNS 非直连地址，确保 UDP 代理打开，并且已经正确转发！"
+	[ "${use_tcp_node_resolve_dns}" = "1" ] && echolog "  * 请确认上游 DNS 支持 TCP 查询，如非直连地址，确保 TCP 代理打开，并且已经正确转发！"
 }
 
 add_dnsmasq() {
@@ -843,9 +844,9 @@ add_dnsmasq() {
 		hosts_foreach "servers" host_from_url | grep -v "google.c" | grep '[a-zA-Z]$' | sort -u | gen_dnsmasq_items "vpsiplist" "${fwd_dns}" "${TMP_DNSMASQ_PATH}/01-vpsiplist_host.conf"
 		echolog "  - [$?]节点列表中的域名(vpsiplist)：${fwd_dns:-默认}"
 
-		#始终用国内DNS解析直连（白名单）列表		
+		#始终用国内DNS解析直连（白名单）列表
 		fwd_dns="${LOCAL_DNS}"
-		#如果使用Chinadns-NG直接交给Chinadns-NG处理
+		#如果使用ChinaDNS-NG则直接交给它处理
 		[ "$CHINADNS_NG" = "1" ] && unset fwd_dns
 		#如果没使用chnlist直接使用默认DNS
 		[ "${USE_CHNLIST}" = "0" ] && unset fwd_dns
@@ -857,9 +858,9 @@ add_dnsmasq() {
 			fwd_dns="${LOCAL_DNS}"
 			[ -n "${returnhome}" ] || [ -n "${chnlist}" ] && {
 				[ -n "${global}" ] && unset fwd_dns
-				#如果使用Chinadns-NG直接交给Chinadns-NG处理
+				#如果使用Chinadns-NG直接交给它处理
 				[ "$CHINADNS_NG" = "1" ] && unset fwd_dns
-				#如果使用回国模式，设置dns为远程DNS。
+				#如果使用回国模式，设置DNS为远程DNS。
 				[ -n "${returnhome}" ] && fwd_dns="${TUN_DNS}"
 				sort -u "${RULES_PATH}/chnlist" | gen_dnsmasq_items "chnroute" "${fwd_dns}" "${TMP_DNSMASQ_PATH}/chinalist_host.conf"
 				echolog "  - [$?]中国域名表(chnroute)：${fwd_dns:-默认}"
@@ -868,7 +869,7 @@ add_dnsmasq() {
 
 		#始终使用远程DNS解析代理（黑名单）列表
 		fwd_dns="${TUN_DNS}"
-		#如果使用Chinadns-NG直接交给Chinadns-NG处理
+		#如果使用Chinadns-NG直接交给它处理
 		[ "$CHINADNS_NG" = "1" ] && unset fwd_dns
 		#如果使用chnlist直接使用默认DNS
 		[ "${USE_CHNLIST}" = "1" ] && unset fwd_dns
@@ -880,7 +881,7 @@ add_dnsmasq() {
 		#如果没有使用回国模式
 		[ -z "${returnhome}" ] && {
 			fwd_dns="${TUN_DNS}"
-			#如果使用Chinadns-NG直接交给Chinadns-NG处理
+			#如果使用Chinadns-NG直接交给它处理
 			[ "$CHINADNS_NG" = "1" ] && unset fwd_dns
 			#如果使用chnlist直接使用默认DNS
 			[ "${USE_CHNLIST}" = "1" ] && unset fwd_dns
@@ -892,7 +893,7 @@ add_dnsmasq() {
 		#如果开启了通过代理订阅
 		[ "$(config_t_get global_subscribe subscribe_proxy 0)" = "1" ] && {
 			fwd_dns="${TUN_DNS}"
-			#如果使用Chinadns-NG直接交给Chinadns-NG处理
+			#如果使用Chinadns-NG直接交给它处理
 			[ "$CHINADNS_NG" = "1" ] && unset fwd_dns
 			#如果使用chnlist直接使用默认DNS
 			[ "${USE_CHNLIST}" = "1" ] && unset fwd_dns
@@ -911,7 +912,7 @@ add_dnsmasq() {
 		#兼容旧版dnsmasq
 		echo "conf-dir=${TMP_DNSMASQ_PATH}" > "${DNSMASQ_PATH}/dnsmasq-${CONFIG}.conf"
 
-		[ "${USE_CHNLIST}" = "1" ] && servers="${TUN_DNS}"
+		[ "${USE_CHNLIST}" = "1" ] && [ -z "${returnhome}" ] && [ -n "${chnlist}" ] && servers="${TUN_DNS}"
 		[ -n "${chnlist}" ] && msg="中国列表以外"
 		[ -n "${returnhome}" ] && msg="中国列表"
 		[ -n "${global}" ] && msg="全局"
